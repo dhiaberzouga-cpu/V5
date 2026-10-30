@@ -1,0 +1,155 @@
+-- Time Bomb Script (High Quality - White)
+-- حطه كـ Script داخل الـ Tool
+
+local Tool = script.Parent
+local Handle = Tool:WaitForChild("Handle")
+
+-- إعدادات القنبلة
+local BOMB_TIME = 5 -- ثواني العد التنازلي
+local EXPLOSION_RADIUS = 20
+local EXPLOSION_PRESSURE = 500000
+
+-- تجهيز شكل القنبلة (أبيض)
+Handle.Size = Vector3.new(1.2, 1.2, 1.2)
+Handle.BrickColor = BrickColor.new("White")
+Handle.Material = Enum.Material.Neon
+Handle.Shape = Enum.PartType.Ball
+Handle.CanCollide = true
+
+-- إضافة ضوء
+local PointLight = Instance.new("PointLight")
+PointLight.Color = Color3.fromRGB(255, 255, 255)
+PointLight.Brightness = 2
+PointLight.Range = 10
+PointLight.Parent = Handle
+
+-- جزيئات الشرر
+local Sparks = Instance.new("ParticleEmitter")
+Sparks.Texture = "rbxassetid://241650934" -- شرر
+Sparks.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255))
+Sparks.Size = NumberSequence.new({
+	NumberSequenceKeypoint.new(0, 0.3),
+	NumberSequenceKeypoint.new(1, 0)
+})
+Sparks.Lifetime = 15
+Sparks.Rate = 20
+Sparks.Speed = NumberRange.new(2, 5)
+Sparks.Lifetime = 0.8
+Sparks.Parent = Handle
+
+-- صوت التنبيه
+local BeepSound = Instance.new("Sound")
+BeepSound.SoundId = "rbxassetid://138081500" -- صوت بييب
+BeepSound.Volume = 1.5
+BeepSound.Parent = Handle
+
+-- صوت الانفجار
+local ExplosionSound = Instance.new("Sound")
+ExplosionSound.SoundId = "rbxassetid://5801257793"
+ExplosionSound.Volume = 2
+ExplosionSound.Parent = Handle
+
+local isActive = false
+
+local function CreateBomb(position, parent)
+	local Bomb = Handle:Clone()
+	Bomb.Name = "ActiveBomb"
+	Bomb.Anchored = true
+	Bomb.CanCollide = true
+	Bomb.Position = position
+	Bomb.Parent = parent or workspace
+
+	-- واجهة العد التنازلي
+	local Billboard = Instance.new("BillboardGui")
+	Billboard.Size = UDim2.new(0, 100, 0, 40)
+	Billboard.StudsOffset = Vector3.new(0, 2.2, 0)
+	Billboard.AlwaysOnTop = true
+	Billboard.Parent = Bomb
+
+	local TimerLabel = Instance.new("TextLabel")
+	TimerLabel.Size = UDim2.new(1, 0, 1, 0)
+	TimerLabel.BackgroundTransparency = 1
+	TimerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	TimerLabel.TextStrokeTransparency = 0
+	TimerLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	TimerLabel.Font = Enum.Font.GothamBold
+	TimerLabel.TextScaled = true
+	TimerLabel.Parent = Billboard
+
+	return Bomb, TimerLabel
+end
+
+local function Explode(bomb)
+	local explosion = Instance.new("Explosion")
+	explosion.Position = bomb.Position
+	explosion.BlastRadius = EXPLOSION_RADIUS
+	explosion.BlastPressure = EXPLOSION_PRESSURE
+	explosion.DestroyJointRadiusPercent = 0
+	explosion.Parent = workspace
+
+	ExplosionSound.Parent = workspace
+	ExplosionSound.PlaybackSpeed = 1
+	ExplosionSound:Play()
+
+	-- جزيئات انفجار إضافية
+	local explosionParticles = Instance.new("ParticleEmitter")
+	explosionParticles.Texture = "rbxassetid://241650934"
+	explosionParticles.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255))
+	explosionParticles.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 2),
+		NumberSequenceKeypoint.new(1, 0)
+	})
+	explosionParticles.Lifetime = 40
+	explosionParticles.Rate = 0
+	explosionParticles.Speed = NumberRange.new(20, 40)
+	explosionParticles.Parent = bomb
+	explosionParticles:Emit(30)
+
+	task.wait(0.3)
+	bomb:Destroy()
+end
+
+Tool.Activated:Connect(function()
+	if isActive then return end
+	isActive = true
+
+	local character = Tool.Parent
+	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+	if not humanoidRootPart then
+		isActive = false
+		return
+	end
+
+	-- إنشاء القنبلة أمام اللاعب
+	local offset = humanoidRootPart.CFrame.LookVector * 4
+	local bombPosition = humanoidRootPart.Position + offset + Vector3.new(0, 1, 0)
+
+	local bomb, timerLabel = CreateBomb(bombPosition)
+
+	-- إخفاء الأداة مؤقتاً
+	Tool.Enabled = false
+
+	-- العد التنازلي
+	for i = BOMB_TIME, 1, -1 do
+		timerLabel.Text = tostring(i)
+
+		-- يغير سطوع الضوء مع الوقت
+		local light = bomb:FindFirstChildOfClass("PointLight")
+		if light then
+			light.Brightness = 2 + (BOMB_TIME - i) * 1.5
+			light.Range = 10 + (BOMB_TIME - i) * 3
+		end
+
+		BeepSound:Play()
+		task.wait(1)
+	end
+
+	timerLabel.Text = "!"
+	task.wait(0.15)
+
+	Explode(bomb)
+
+	task.wait(1)
+	Tool.Enabled = true
+	isActive = false
+end)
